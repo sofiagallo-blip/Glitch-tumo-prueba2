@@ -56,12 +56,12 @@ const advance = async (r) => {
 export default async function handler(req, res) {
   const send = (c, o) => res.status(c).json(o);
   try {
-    const p = [].concat(req.query.path || []).join("/").split("/").filter(Boolean);
+   const p = new URL(req.url, "http://x").pathname.split("/").filter(Boolean).slice(1);
     const b = req.body && typeof req.body === "object" ? req.body : {};
     const [a, id, k, m] = p;
 
     if (a === "ranking") {
-      const all = req.query.scope === "all", since = all ? 0 : Date.now() - 12 * 3600 * 1000;
+      const all = new URL(req.url, "http://x").searchParams.get("scope") === "all", since = all ? 0 : Date.now() - 12 * 3600 * 1000;
       const ranking = (await store.recent()).filter((r) => !r.dev && r.startedAt >= since).map((r) => {
         const x = pub(r);
         return { team: r.team, stage: r.stage, finished: !!r.finishedAt, hints: r.hints.length, mistakes: r.mistakes, score: x.elapsed + x.penalty };
