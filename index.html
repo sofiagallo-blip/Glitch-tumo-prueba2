@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TUMO Chacarita - Glitch Scavenger Hunt</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+body{background:#0D1117;color:#e5e7eb;font-family:'Courier New',monospace}
+.neon{border:1px solid #a4e320;box-shadow:0 0 15px rgba(164,227,32,.15)}
+.g{color:#a4e320}.bg-g{background:#a4e320;color:#000}
+.ttl{color:#fff;text-shadow:2px 2px 0 #a4e320,-2px -2px 0 #f0f;letter-spacing:2px}
+@keyframes shake{25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}.shake{animation:shake .3s 2}
+@keyframes fl{50%{transform:translateY(-8px)}}.fl{animation:fl 3s ease-in-out infinite}
+.scene{perspective:900px;width:160px;height:160px}.cube{width:100%;height:100%;position:relative;transform-style:preserve-3d}
+.face{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;border:2px solid #fb923c;background:rgba(124,45,18,.75);font-size:64px;font-weight:700;color:#fff;backface-visibility:hidden}
+.face small{position:absolute;top:4px;left:8px;font-size:14px;color:#fed7aa}
+.hidden{display:none!important}
+</style></head>
+<body class="min-h-screen p-4 max-w-5xl mx-auto">
+<header class="flex flex-wrap gap-2 justify-between items-center border-b border-gray-800 pb-3 mb-5">
+ <div class="flex items-center gap-2"><b class="bg-g px-3 py-1 rounded">TUMO</b><span id="dev" class="hidden text-xs bg-yellow-400 text-black px-2 py-1 rounded font-bold">MODO DOCENTE</span><span id="hteam" class="hidden g text-sm font-bold"></span></div>
+ <div class="flex gap-2 text-sm"><button id="skip" class="hidden border border-yellow-500 rounded-full px-3 py-1">🔓</button><button id="brank" class="border border-gray-600 rounded-full px-3 py-1 font-bold">🏆 Ranking</button><button id="out" class="hidden border border-gray-600 rounded-full px-3 py-1">Salir</button></div>
+</header>
+
+<main id="login" class="max-w-md mx-auto text-center mt-10">
+ <h1 class="text-4xl font-bold ttl mb-8 uppercase">Sistema bloqueado</h1>
+ <div class="neon bg-[#161B22] rounded-xl p-6 space-y-4 text-left">
+  <p class="text-sm text-gray-400">Error crítico en los servidores. Ingresen el nombre del equipo para iniciar la restauración.</p>
+  <input id="team" maxlength="30" placeholder="Nombre de tu equipo..." class="w-full bg-[#0D1117] border border-gray-600 focus:border-[#a4e320] px-4 py-3 rounded outline-none">
+  <button id="go" class="w-full bg-g font-bold py-3 rounded uppercase disabled:opacity-50">Iniciar sistema</button>
+  <p id="lerr" class="text-xs text-red-400 hidden"></p>
+  <p class="text-xs text-gray-500">⏱ El reloj empieza al iniciar. Cada pista suma +1 minuto.</p>
+ </div>
+</main>
+
+<main id="dash" class="hidden flex-col gap-5">
+ <div class="bg-[#161B22] border border-gray-700 rounded-xl p-4 flex gap-4 items-center">
+  <div class="text-6xl fl">🐕</div>
+  <div class="flex-1 space-y-3">
+   <div id="dog" class="bg-[#0D1117] border border-gray-600 rounded-lg p-3 text-sm"></div>
+   <div class="flex flex-wrap items-center gap-x-5 gap-y-1 text-xs">
+    <div class="flex-1 min-w-[160px]"><div class="flex justify-between mb-1"><span class="text-gray-400">RESTAURACIÓN</span><b id="plabel" class="g">0/7</b></div><div class="h-2 bg-gray-800 rounded-full overflow-hidden"><div id="pbar" class="h-full bg-g transition-all duration-700" style="width:0"></div></div></div>
+    <div>⏱ <b id="timer">00:00</b></div><div>💡 <b id="hc">0</b></div>
+   </div>
+  </div>
+ </div>
+ <div id="cards" class="grid md:grid-cols-2 xl:grid-cols-3 gap-5"></div>
+</main>
+
+<div id="modal" class="hidden fixed inset-0 bg-black/95 z-50 flex-col">
+ <div class="p-3 bg-gray-900 border-b-2 border-[#a4e320] flex justify-between items-center"><h2 id="mt" class="font-bold g text-lg"></h2><button id="mx" class="text-red-400 border border-red-500 rounded px-3 font-bold text-xl">X</button></div>
+ <div id="mb" class="flex-1 overflow-auto p-4 flex flex-col items-center"></div>
+</div>
+<div id="rk" class="hidden fixed inset-0 bg-black/90 z-[60] items-start justify-center p-4 overflow-auto">
+ <div class="w-full max-w-2xl neon bg-[#161B22] rounded-xl p-5 mt-6">
+  <div class="flex justify-between items-center mb-3"><h2 class="text-2xl font-bold g">🏆 RANKING</h2><button id="rx" class="text-red-400 font-bold text-xl">X</button></div>
+  <div class="flex gap-2 mb-3 text-sm"><button data-s="today" class="sc px-3 py-1 rounded-full border">Hoy</button><button data-s="all" class="sc px-3 py-1 rounded-full border">Histórico</button><span class="ml-auto text-xs text-gray-500 self-center">Se actualiza solo · +1 min por pista</span></div>
+  <div id="rl" class="space-y-2"></div>
+ </div>
+</div>
+<div id="toast" class="hidden fixed bottom-5 left-1/2 -translate-x-1/2 z-[100] bg-gray-900 border border-[#a4e320] text-sm px-4 py-2 rounded-lg"></div>
+
+<script>
+const $=id=>document.getElementById(id),esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmt=s=>{s=Math.max(0,Math.round(s));const h=s/3600|0,m=String(s%3600/60|0).padStart(2,'0'),x=String(s%60).padStart(2,'0');return h?`${h}:${m}:${x}`:`${m}:${x}`};
+const api=async(p,b)=>{const r=await fetch(p,b===undefined?{}:{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(b)});const d=await r.json().catch(()=>({}));if(!r.ok){const e=new Error(d.error||'Error de conexión');e.status=r.status;throw e}return d};
+const show=e=>{e.classList.remove('hidden');e.classList.add('flex')},hide=e=>{e.classList.add('hidden');e.classList.remove('flex')};
+let tt;const toast=(m)=>{const t=$('toast');t.textContent=m;t.classList.remove('hidden');clearTimeout(tt);tt=setTimeout(()=>t.classList.add('hidden'),2500)};
+let ac;const tone=(f,d=.3,ty='sine',v=.2)=>{try{ac=ac||new(window.AudioContext||window.webkitAudioContext)();const o=ac.createOscillator(),g=ac.createGain();o.type=ty;o.frequency.value=f;g.gain.setValueAtTime(v,ac.currentTime);g.gain.exponentialRampToValueAtTime(.001,ac.currentTime+d);o.connect(g).connect(ac.destination);o.start();o.stop(ac.currentTime+d)}catch(e){}};
+const ok=()=>{tone(660,.12,'square',.08);setTimeout(()=>tone(990,.2,'square',.08),110)},bad=()=>tone(140,.3,'sawtooth',.12);
+const box=(l,v)=>`<div class="text-center mt-6"><p class="mb-2 text-gray-300">${l}</p><div class="inline-block text-3xl font-mono border-2 border-[#a4e320] px-6 py-3 rounded select-all">${esc(v)}</div><p class="text-xs text-gray-500 mt-3">Cierren esta ventana y escríbanla en el módulo.</p></div>`;
+
+const DEV=new URLSearchParams(location.search).get('dev')==='1',KEY='tumoRun',TOTAL=7;
+let run=null,off=0,built=false,cache={},cleanup=null;
+const pl=async m=>cache[m]??=await api(`/api/runs/${run.id}/module/${m}`);
+
+// ===== Módulos: [título, ícono, pregunta, diálogo del perro, minijuego]
+const MODS=[
+['Dibujo Digital','🎨','¿A quién encontraron en el lienzo? (quién es, de qué color y qué hace)',t=>`¡Bienvenidos, <b class="g">${esc(t)}</b>! Un glitch bloqueó los servidores de TUMO Chaca. Empecemos por <b>Dibujo</b>: en el lienzo hay alguien que <i>no</i> debería verse así. ¿Quién es, de qué color está y qué está haciendo?`,g1],
+['Videojuegos','🎮','Contraseña de administrador (Arcade):',()=>'¡Alerta! Unos bugs se escaparon en <b>Videojuegos</b>. Entren al Arcade, atrápenlos a todos y consigan la contraseña.',g2],
+['Música','🎧','Clave del estudio de grabación:',()=>'El estudio de <b>Música</b> perdió el ritmo. Abran la consola, escuchen con atención y repitan las secuencias. ¡Suban el volumen!',g3],
+['Modelado 3D','🧊','¿Qué palabra forman las caras del cubo?',()=>'En <b>Modelado 3D</b> cada cara del cubo guarda una letra. Háganlo girar, encuéntrenlas <i>todas</i> y ordénenlas.',g4],
+['Programación','💻','¿Qué imprime el programa?',()=>'¡La consola de <b>Programación</b> se rompió! Van a tener que ejecutar el código en su cabeza 🧠.',g5],
+['Gen IA','🤖','Clave del detector de alucinaciones:',()=>'En <b>Gen IA</b> una imagen salió con errores: la IA <i>alucinó</i>. Encuentren los 3 para obtener la clave.',g6],
+['Fotografía y Cine','🎬','¿Qué palabra dice la claqueta?',()=>'Último módulo: <b>Fotografía y Cine</b>. La cámara quedó desenfocada y sin luz. Ajústenla hasta leer la claqueta. ¡Silencio en el set!',g7],
+];
+
+function build(){
+ $('cards').innerHTML=MODS.map((m,i)=>`<div id="c${i+1}" class="bg-[#161B22] border border-gray-700 rounded-xl p-5 transition-all">
+  <h2 class="font-bold text-white mb-1">${m[1]} Módulo ${i+1}: ${m[0]}</h2><p class="st text-sm mb-3"></p>
+  <button class="op hidden w-full mb-3 bg-g font-bold py-2 rounded fl">Abrir minijuego</button>
+  <div class="fm hidden"><label class="block text-xs g mb-1">${m[2]}</label><div class="flex gap-2"><input class="flex-1 min-w-0 bg-[#0D1117] border border-gray-600 rounded px-3 py-2 text-sm outline-none focus:border-[#a4e320]"><button class="sd bg-g font-bold px-4 rounded text-sm disabled:opacity-50">ENVIAR</button></div>
+  <p class="fb text-xs mt-2 hidden"></p><button class="hb mt-2 text-xs text-gray-400 underline">💡 Pedir pista (+1 min)</button><p class="ht hidden mt-2 text-xs text-yellow-200 bg-yellow-900/30 rounded p-2"></p></div>
+  <div class="dn hidden g font-bold">✅ Módulo restaurado</div></div>`).join('');
+ MODS.forEach((m,i)=>{const c=$('c'+(i+1)),q=s=>c.querySelector(s),n=i+1;
+  q('.op').onclick=()=>openGame(n);q('.sd').onclick=()=>send(n);q('input').onkeydown=e=>{if(e.key==='Enter')send(n)};q('.hb').onclick=()=>hint(n)});
+ built=true;
+}
+function upd(){
+ const s=run.stage;
+ MODS.forEach((m,i)=>{const n=i+1,c=$('c'+n),q=x=>c.querySelector(x),done=n<=s,act=n===s+1;
+  c.classList.toggle('opacity-50',!done&&!act);c.classList.toggle('neon',act);
+  q('.op').classList.toggle('hidden',!act);q('.fm').classList.toggle('hidden',!act);q('.dn').classList.toggle('hidden',!done);
+  q('.st').innerHTML=done?'Estado: <span class="g">Estable</span>':act?'Estado: <span class="text-red-400">Glitch detectado</span>':`<span class="text-gray-500">🔒 Requiere restaurar el módulo ${n-1}</span>`;
+  if(act&&run.hints.includes(n)&&q('.ht').classList.contains('hidden'))api(`/api/runs/${run.id}/hint`,{module:n}).then(r=>showHint(c,r.hint)).catch(()=>{});});
+ $('plabel').textContent=`${s}/${TOTAL}`;$('pbar').style.width=s/TOTAL*100+'%';$('hc').textContent=`${run.hints.length} (+${run.hints.length} min)`;
+ $('dog').innerHTML='<b>[STAFF TUMO]:</b> '+(s>=TOTAL?'¡SISTEMA ESTABLE! 🎉 Restauraron los 7 módulos. ¡Miren en qué puesto quedaron en el 🏆 Ranking!':MODS[s][3](run.team));
+ $('skip').classList.toggle('hidden',!run.isDev||s>=TOTAL);$('dev').classList.toggle('hidden',!run.isDev);
+}
+function showHint(c,t){const h=c.querySelector('.ht');h.textContent='💡 '+t;h.classList.remove('hidden');c.querySelector('.hb').classList.add('hidden')}
+async function hint(n){
+ if(!run.hints.includes(n)&&!confirm('Pedir una pista suma +1 minuto a su tiempo. ¿Seguros?'))return;
+ try{const r=await api(`/api/runs/${run.id}/hint`,{module:n});run=r.run;showHint($('c'+n),r.hint);upd()}catch(e){toast('⚠ '+e.message)}
+}
+async function send(n){
+ const c=$('c'+n),i=c.querySelector('input'),b=c.querySelector('.sd'),f=c.querySelector('.fb'),a=i.value.trim();
+ if(!a){i.focus();return}b.disabled=true;
+ try{const r=await api(`/api/runs/${run.id}/answer`,{module:n,answer:a});f.classList.remove('hidden');
+  if(r.correct){ok();f.className='fb text-xs mt-2 g';f.textContent='¡Correcto!';setRun(r.run);toast(`✅ Módulo ${n} restaurado`)}
+  else{bad();f.className='fb text-xs mt-2 text-red-400';f.textContent=r.message;c.classList.remove('shake');void c.offsetWidth;c.classList.add('shake');run=r.run}
+ }catch(e){e.status===409?refresh():toast('⚠ '+e.message)}finally{b.disabled=false}
+}
+function setRun(r,quiet){run=r;off=Date.now()-r.now;if(built)upd();if(!quiet&&r.stage>=TOTAL)showWin()}
+async function refresh(){try{setRun(await api(`/api/runs/${run.id}`),true)}catch(e){}}
+setInterval(()=>{if(!run)return;$('timer').textContent=fmt(((run.finishedAt||Date.now()-off)-run.startedAt)/1000)},500);
+
+// ===== Login / sesión
+function enter(){hide($('login'));$('login').classList.add('hidden');show($('dash'));$('hteam').textContent='EQUIPO: '+run.team;$('hteam').classList.remove('hidden');$('out').classList.remove('hidden');build();upd()}
+async function login(){
+ const t=$('team').value.trim();if(!t){$('team').focus();return}$('go').disabled=true;
+ try{const r=await api('/api/runs',{team:t,dev:DEV});localStorage.setItem(KEY,r.id);setRun(r,true);enter()}
+ catch(e){$('lerr').textContent='⚠ '+e.message;$('lerr').classList.remove('hidden')}finally{$('go').disabled=false}
+}
+$('go').onclick=login;$('team').onkeydown=e=>{if(e.key==='Enter')login()};
+$('out').onclick=()=>{if(confirm('¿Salir? El progreso de este equipo se pierde en esta compu.')){localStorage.removeItem(KEY);location.reload()}};
+$('skip').onclick=async()=>{try{setRun((await api(`/api/runs/${run.id}/skip`,{})).run)}catch(e){toast('⚠ '+e.message)}};
+(async()=>{const id=localStorage.getItem(KEY);if(id){try{setRun(await api('/api/runs/'+id),true);enter()}catch(e){if(e.status===404)localStorage.removeItem(KEY)}}})();
+
+// ===== Modal de juegos
+function openM(title,html){stopG();$('mt').innerHTML=title;$('mb').innerHTML=html;show($('modal'))}
+function stopG(){if(cleanup)cleanup();cleanup=null}
+$('mx').onclick=()=>{stopG();hide($('modal'))};
+async function openGame(n){openM(MODS[n-1][1]+' '+MODS[n-1][0].toUpperCase(),'');try{const c=await MODS[n-1][4]($('mb'));if(typeof c==='function')cleanup=c}catch(e){hide($('modal'));toast('⚠ '+e.message)}}
+
+// 1: Lienzo oculto
+function g1(b){
+ b.innerHTML=`<p id="m1" class="text-sm text-gray-300 mb-2 text-center">Exploren el lienzo (scrolleen). Algo está fuera de lugar…</p><div class="w-full overflow-auto border border-gray-700 rounded" style="height:68vh"><div id="w" class="relative" style="width:1400px;height:900px;background:linear-gradient(#1e293b 60%,#064e3b 60%)"></div></div>`;
+ const w=$('w'),say=t=>$('m1').innerHTML=t,E=['🐸','🐱','🌳','🦊','🐶','🐰','🦆','🐢','🌲','🦉','🦒','🐘'];
+ const add=(h,x,y,f)=>{const d=document.createElement('span');d.innerHTML=h;d.className='absolute text-3xl cursor-pointer';d.style.left=x+'px';d.style.top=y+'px';d.onclick=f;w.appendChild(d)};
+ for(let i=0;i<80;i++)add(E[i%E.length],Math.random()*1340,Math.random()*840,()=>say('Mmm… eso parece normal. Sigan buscando 🔎'));
+ add('<span style="filter:hue-rotate(90deg) saturate(3)">🐻</span>🧶',150+Math.random()*1100,580+Math.random()*230,()=>{say('<b class="g">¡Encontraron algo raro! 👀</b> Descríbanlo en el módulo: quién es, de qué color y qué hace.');ok()});
+}
+// 2: Bug hunter
+function g2(b){
+ b.innerHTML=`<p class="mb-2 font-bold">BUGS: <span id="bs" class="g">0</span>/6</p><div id="ar" class="relative w-full overflow-hidden border border-[#a4e320] rounded bg-black cursor-crosshair" style="height:68vh;touch-action:none"></div><div id="bc"></div>`;
+ const ar=$('ar');let bugs=[],sc=0,alive=true,raf;
+ const mk=()=>{const e=document.createElement('div'),s=4+Math.random()*3,a=Math.random()*6.28;e.textContent=['👾','🐛','🦠','🐞'][Math.random()*4|0];e.className='absolute text-4xl select-none cursor-pointer';
+  const o={e,x:Math.random()*(ar.clientWidth-50),y:Math.random()*(ar.clientHeight-50),vx:Math.cos(a)*s,vy:Math.sin(a)*s};
+  e.onpointerdown=async ev=>{ev.preventDefault();const i=bugs.indexOf(o);if(i<0)return;bugs.splice(i,1);e.textContent='💥';setTimeout(()=>e.remove(),200);$('bs').textContent=++sc;tone(500+sc*80,.12,'square',.08);bugs.forEach(x=>{x.vx*=1.12;x.vy*=1.12});
+   if(sc>=6){alive=false;ok();try{$('bc').innerHTML=box('¡Bugs eliminados! Contraseña de acceso:',(await pl(2)).code)}catch(x){toast('⚠ '+x.message)}}};
+  ar.appendChild(e);return o};
+ for(let i=0;i<6;i++)bugs.push(mk());
+ const loop=()=>{if(!alive)return;const W=ar.clientWidth-50,H=ar.clientHeight-50;bugs.forEach(o=>{o.x+=o.vx;o.y+=o.vy;if(o.x<0||o.x>W){o.vx*=-1;o.x=Math.max(0,Math.min(o.x,W))}if(o.y<0||o.y>H){o.vy*=-1;o.y=Math.max(0,Math.min(o.y,H))}o.e.style.left=o.x+'px';o.e.style.top=o.y+'px'});raf=requestAnimationFrame(loop)};loop();
+ return()=>{alive=false;cancelAnimationFrame(raf)};
+}
+// 3: Música (Simón dice)
+function g3(b){
+ const P=[['bg-red-600',262],['bg-blue-600',330],['bg-yellow-500',392],['bg-green-600',523]],R=[3,4,5];
+ b.innerHTML=`<p id="s3" class="mb-4 text-gray-300 text-center">Toquen ▶, escuchen la melodía y repítanla.</p><div class="grid grid-cols-2 gap-3 w-64">${P.map(p=>`<button class="pad h-28 rounded-2xl ${p[0]} transition-opacity"></button>`).join('')}</div><button id="pl" class="mt-4 bg-pink-500 px-5 py-2 rounded font-bold">▶ Escuchar</button><div id="r3"></div>`;
+ let seq=[],idx=0,rd=0,okk=false,alive=true;const pads=[...b.querySelectorAll('.pad')],msg=t=>$('s3').textContent=t,wait=ms=>new Promise(r=>setTimeout(r,ms));
+ const flash=async(i,ms=350)=>{pads[i].style.opacity=.35;tone(P[i][1],ms/1000+.1,'triangle',.3);await wait(ms);pads[i].style.opacity=1};
+ const grow=()=>{while(seq.length<R[rd])seq.push(Math.random()*4|0)};
+ const play=async()=>{okk=false;idx=0;msg('🎧 Escuchen…');await wait(400);for(const i of seq){if(!alive)return;await flash(i);await wait(200)}okk=true;msg(`Su turno 👆 (pista ${rd+1}/3)`)};
+ grow();$('pl').onclick=play;
+ pads.forEach((p,i)=>p.onclick=async()=>{if(!okk)return;flash(i,200);
+  if(i!==seq[idx]){okk=false;bad();msg('❌ Nota equivocada. Escuchen de nuevo…');await wait(1100);if(alive)play();return}
+  if(++idx<seq.length)return;okk=false;rd++;
+  if(rd>=R.length){msg('🎶 ¡Ritmo recuperado!');ok();$('pl').classList.add('hidden');$('r3').innerHTML=box('La consola liberó la clave del estudio:',(await pl(3)).code);return}
+  msg('✅ ¡Bien! Viene una más larga…');grow();await wait(1000);if(alive)play()});
+ return()=>alive=false;
+}
+// 4: Modelado 3D
+async function g4(b){
+ const f=(await pl(4)).faces,T={front:'rotateY(0)',back:'rotateY(180deg)',right:'rotateY(90deg)',left:'rotateY(-90deg)',top:'rotateX(90deg)',bottom:'rotateX(-90deg)'};
+ b.innerHTML=`<p class="text-gray-300 mb-6 text-center">Arrastren el cubo para verlo desde todos los ángulos. Cada cara tiene una letra y un número de orden.</p><div id="cz" class="select-none" style="touch-action:none;padding:40px"><div class="scene"><div class="cube" id="cb">${Object.entries(f).map(([s,[n,l]])=>`<div class="face" style="transform:${T[s]} translateZ(80px)"><small>#${n}</small>${esc(l)}</div>`).join('')}</div></div></div><p class="text-xs text-gray-500 mt-4">Un cubo tiene 6 caras… ¿cuántas letras deberían encontrar? 😉</p>`;
+ let rx=-20,ry=30,d=null;const cb=$('cb'),ap=()=>cb.style.transform=`rotateX(${rx}deg) rotateY(${ry}deg)`,z=$('cz');ap();
+ z.onpointerdown=e=>{d={x:e.clientX,y:e.clientY,rx,ry};z.setPointerCapture(e.pointerId)};
+ z.onpointermove=e=>{if(d){ry=d.ry+(e.clientX-d.x)*.6;rx=d.rx-(e.clientY-d.y)*.6;ap()}};z.onpointerup=z.onpointercancel=()=>d=null;
+}
+// 5: Programación
+async function g5(b){
+ const L=(await pl(5)).letters;
+ b.innerHTML=`<p class="text-gray-300 mb-3 text-center">Ejecuten el código en su cabeza: ¿qué se imprime en la consola?</p><pre class="bg-black border border-cyan-700 rounded p-4 text-sm md:text-base text-gray-200 overflow-x-auto w-full max-w-2xl">const letras = [${L.map(x=>`"${esc(x)}"`).join(', ')}];
+let clave = "";
+
+for (let i = 0; i &lt; letras.length; i += 2) {
+    clave = clave + letras[i];
+}
+
+console.log(clave.toUpperCase());</pre><button id="rn" class="mt-4 bg-cyan-600 px-4 py-2 rounded font-bold">▶ Ejecutar</button><pre id="co" class="mt-2 text-xs text-red-400"></pre><p class="text-xs text-gray-500 mt-4 text-center">Tip: las posiciones de una lista empiezan en 0. Pueden usar papel y lápiz ✏️</p>`;
+ $('rn').onclick=()=>{bad();$('co').textContent='> Uncaught GlitchError: consola dañada 🐛\n> Ejecútenlo en su cabeza.'};
+}
+// 6: Gen IA
+async function g6(b){
+ const E={hand:'Una mano con 6 dedos ✋',clock:'Un reloj con un 13 🕐',sign:'Un cartel con letras mal escritas 🔤'},F=new Set(),T=(x,y,t)=>`<text x="${x}" y="${y}" text-anchor="middle" font-size="16" font-weight="bold" fill="#111">${t}</text>`;
+ b.innerHTML=`<p class="text-sm text-gray-300 mb-2 text-center"><b class="text-yellow-400">PROMPT:</b> "un estudiante saludando en el aula de TUMO, con un reloj, una planta y una compu"</p><p class="mb-2">La IA alucinó. Toquen los <b class="text-yellow-400">3 errores</b>: <b id="c6" class="text-yellow-400">0/3</b></p>
+<svg id="sv" viewBox="0 0 600 330" class="w-full max-w-3xl rounded border-2 border-yellow-600 bg-slate-700 cursor-pointer"><rect y="250" width="600" height="80" fill="#1e293b"/>
+<g data-ok="La ventana"><rect x="30" y="50" width="100" height="120" fill="#7dd3fc" stroke="#0f172a" stroke-width="6"/><line x1="80" y1="50" x2="80" y2="170" stroke="#0f172a" stroke-width="4"/></g>
+<g data-err="sign"><rect x="190" y="15" width="230" height="40" rx="6" fill="#a4e320"/><text x="305" y="42" text-anchor="middle" font-size="20" font-weight="bold" font-family="monospace" fill="#111">TUMØ CHAKRAITTA</text></g>
+<g data-err="clock"><circle cx="510" cy="90" r="48" fill="#f8fafc" stroke="#0f172a" stroke-width="5"/>${T(510,62,13)+T(545,96,3)+T(510,130,6)+T(475,96,9)}<line x1="510" y1="90" x2="510" y2="68" stroke="#111" stroke-width="4"/><line x1="510" y1="90" x2="528" y2="98" stroke="#111" stroke-width="3"/></g>
+<g data-ok="La compu"><rect x="40" y="215" width="120" height="14" fill="#78350f"/><rect x="65" y="170" width="70" height="45" rx="4" fill="#0f172a" stroke="#94a3b8" stroke-width="3"/><rect x="72" y="177" width="56" height="31" fill="#22d3ee"/></g>
+<g data-ok="La planta"><rect x="490" y="270" width="40" height="45" fill="#b45309"/><path d="M510 270C480 240 480 215 500 200C515 230 515 250 510 270Z" fill="#16a34a"/><path d="M510 270C540 240 545 215 525 195C508 230 508 250 510 270Z" fill="#22c55e"/></g>
+<g data-ok="El estudiante"><rect x="270" y="190" width="70" height="120" rx="18" fill="#a4e320"/><circle cx="305" cy="150" r="36" fill="#fcd9b6"/><circle cx="293" cy="150" r="4"/><circle cx="317" cy="150" r="4"/><path d="M293 165Q305 175 317 165" stroke="#111" stroke-width="3" fill="none"/></g>
+<g data-err="hand"><rect x="338" y="170" width="20" height="70" rx="10" fill="#a4e320" transform="rotate(25 348 240)"/><circle cx="384" cy="160" r="18" fill="#fcd9b6"/>${[-75,-45,-15,15,45,75].map(a=>`<rect x="380" y="120" width="8" height="26" rx="4" fill="#fcd9b6" stroke="#d6a77a" transform="rotate(${a} 384 160)"/>`).join('')}</g>
+<g id="mk"></g></svg><p id="m6" class="text-sm text-gray-400 mt-2 min-h-[20px]"></p><ul id="l6" class="text-sm text-yellow-200"></ul><div id="r6"></div>`;
+ $('sv').onclick=async e=>{if(F.size>=3)return;const er=e.target.closest('[data-err]'),o=e.target.closest('[data-ok]');
+  if(er){const k=er.dataset.err;if(F.has(k))return;F.add(k);ok();const bb=er.getBBox();
+   $('mk').insertAdjacentHTML('beforeend',`<ellipse cx="${bb.x+bb.width/2}" cy="${bb.y+bb.height/2}" rx="${bb.width/2+8}" ry="${bb.height/2+8}" fill="none" stroke="#ef4444" stroke-width="4" stroke-dasharray="8 4"/>`);
+   $('l6').insertAdjacentHTML('beforeend',`<li>✔ ${E[k]}</li>`);$('c6').textContent=F.size+'/3';$('m6').textContent='';
+   if(F.size===3)try{$('r6').innerHTML=box('¡Detector calibrado! Clave generada:',(await pl(6)).code)}catch(x){toast('⚠ '+x.message)}}
+  else $('m6').textContent=o?`🤔 ${o.dataset.ok} se ve bien… ¿o no? Miren los detalles.`:'Nada raro por acá.'};
+}
+// 7: Fotografía y cine
+async function g7(b){
+ const w=(await pl(7)).word,tg=20+Math.random()*60|0;
+ b.innerHTML=`<p class="text-gray-300 mb-3 text-center">Ajusten el <b class="text-red-400">foco</b> y la <b class="text-red-400">exposición</b> hasta poder leer la claqueta.</p>
+<div class="relative w-full max-w-xl border-4 border-gray-700 bg-black overflow-hidden"><div id="pf"><svg viewBox="0 0 400 220" class="w-full block"><rect width="400" height="220" fill="#334155"/><rect x="40" y="15" width="320" height="38" fill="#111"/>${[0,1,2,3,4,5].map(i=>`<polygon points="${45+i*52},15 ${70+i*52},15 ${50+i*52},53 ${25+i*52},53" fill="#f8fafc"/>`).join('')}<rect x="40" y="58" width="320" height="140" fill="#111" stroke="#f8fafc" stroke-width="3"/><text x="52" y="82" fill="#f8fafc" font-family="monospace" font-size="14">PROD: TUMO CHACA</text><text x="200" y="145" text-anchor="middle" fill="#a4e320" font-family="monospace" font-weight="bold" font-size="46">${esc(w)}</text><text x="52" y="188" fill="#f8fafc" font-family="monospace" font-size="14">ESCENA 7 · TOMA 1</text></svg></div><span class="absolute top-2 left-3 text-red-500 text-xs font-bold animate-pulse">● REC</span><span id="po" class="hidden absolute bottom-2 right-3 g text-xs font-bold">📸 ¡TOMA PERFECTA!</span></div>
+<div class="grid md:grid-cols-2 gap-6 mt-5 text-sm w-full max-w-xl"><label>Foco <span id="fv" class="text-gray-500"></span><input id="fo" type="range" min="0" max="100" value="${tg>50?2:98}" class="w-full accent-[#a4e320]"></label><label>Exposición <span id="ev" class="text-gray-500"></span><input id="ex" type="range" min="0" max="100" value="6" class="w-full accent-[#a4e320]"></label></div>`;
+ const up=()=>{const bl=Math.abs(+$('fo').value-tg)/3,br=+$('ex').value/50;$('pf').style.filter=`blur(${bl.toFixed(1)}px) brightness(${br.toFixed(2)}) contrast(${(.6+Math.min(br,1)*.4).toFixed(2)})`;
+  $('fv').textContent=bl<1.5?'(nítido)':bl<6?'(casi…)':'(borroso)';$('ev').textContent=br<.7?'(oscuro)':br>1.35?'(quemado)':'(bien)';$('po').classList.toggle('hidden',!(bl<1.5&&br>=.7&&br<=1.35))};
+ $('fo').oninput=$('ex').oninput=up;up();
+}
+
+// ===== Ranking
+let rs='today',rt;
+async function loadRk(){
+ document.querySelectorAll('.sc').forEach(x=>x.className='sc px-3 py-1 rounded-full border '+(x.dataset.s===rs?'bg-g border-[#a4e320] font-bold':'border-gray-600 text-gray-300'));
+ try{const {ranking:R,total}=await api('/api/ranking?scope='+rs);
+  $('rl').innerHTML=R.length?R.map((r,i)=>{const me=run&&r.team===run.team;return `<div class="flex items-center gap-3 bg-[#0D1117] rounded-lg px-3 py-2 border ${me?'border-[#a4e320]':'border-gray-800'}"><div class="w-8 text-center font-bold ${i<3?'text-2xl':'text-gray-500'}">${['🥇','🥈','🥉'][i]||i+1}</div><div class="flex-1 min-w-0"><div class="font-bold truncate ${me?'g':''}">${esc(r.team)} ${r.finished?'✅':''}</div><div class="h-1.5 bg-gray-800 rounded-full mt-1 overflow-hidden"><div class="h-full ${r.finished?'bg-g':'bg-blue-500'}" style="width:${r.stage/total*100}%"></div></div></div><div class="text-right text-xs whitespace-nowrap"><div class="font-bold text-sm">${fmt(r.score)}</div><div class="text-gray-500">${r.stage}/${total} · 💡${r.hints}</div></div></div>`}).join(''):'<p class="text-gray-500 text-center py-6">Todavía no hay equipos. ¡Sean los primeros!</p>'
+ }catch(e){$('rl').innerHTML=`<p class="text-red-400 text-center py-6">⚠ ${esc(e.message)}</p>`}
+}
+const openRk=()=>{show($('rk'));loadRk();clearInterval(rt);rt=setInterval(loadRk,10000)};
+$('brank').onclick=openRk;$('rx').onclick=()=>{hide($('rk'));clearInterval(rt)};
+document.querySelectorAll('.sc').forEach(x=>x.onclick=()=>{rs=x.dataset.s;loadRk()});
+
+// ===== Victoria
+function showWin(){
+ openM('🎉 ¡SISTEMA RESTAURADO!',`<div class="max-w-md text-center mt-8"><p class="text-gray-300 mb-5">El equipo <b class="g">${esc(run.team)}</b> reparó los 7 módulos de TUMO Chaca.</p><div class="grid grid-cols-3 gap-3 mb-6 text-sm"><div class="bg-[#161B22] rounded p-3"><div class="text-xs text-gray-500">TIEMPO FINAL</div><b class="text-xl">${fmt(run.elapsed+run.penalty)}</b></div><div class="bg-[#161B22] rounded p-3"><div class="text-xs text-gray-500">PISTAS</div><b class="text-xl">${run.hints.length}</b></div><div class="bg-[#161B22] rounded p-3"><div class="text-xs text-gray-500">ERRORES</div><b class="text-xl">${run.mistakes}</b></div></div><button onclick="hide($('modal'));openRk()" class="bg-g font-bold py-3 px-8 rounded">VER RANKING</button></div>`);
+ [523,659,784,1047].forEach((f,i)=>setTimeout(()=>tone(f,.25,'square',.08),i*150));
+}
+</script></body></html>
