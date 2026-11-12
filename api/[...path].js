@@ -22,7 +22,7 @@ const code = (s) => norm(s).replace(/[^a-z0-9]/g, "");
 
 // Respuestas y claves: viven solo en el servidor.
 const M = {
-  1: { check: (a) => { const v = norm(a); return /winnie|pooh|pu\b|oso/.test(v) && /verde|shrek/.test(v) && /tej|bufanda|lana|agujas|hil/.test(v); },
+  1: { check: (a) => { const v = norm(a); return /winnie|pooh|pu\b|oso|osito/.test(v) && /verde|shrek/.test(v) && /tej|bufanda|lana|agujas|hil/.test(v); },
     wrong: "Incompleto. Nombrá al personaje, decí qué tiene de raro su color y qué está haciendo.",
     hint: "Es un oso famoso de los dibujos animados, pero acá no tiene su color de siempre. Buscá en la zona verde de abajo del lienzo." },
   2: { check: (a) => code(a) === "debugtumo", wrong: "Contraseña incorrecta. Atrapá los bugs del Arcade para conseguirla.",
